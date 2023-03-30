@@ -4,14 +4,13 @@ import {
   loginWithEmail,
   registerWithEmail,
   signInWithGoogle,
-  signInWithGoogleCallback,
 } from "./auth.controller.js";
 
 const router = express.Router();
 
 // full route  /api/auth
-router.get("/google", signInWithGoogle);
-router.get("/google/callback", signInWithGoogleCallback);
+
+router.get("/google", multerUpload.none(), signInWithGoogle);
 
 router.post("/register", multerUpload.none(), registerWithEmail);
 router.post("/login", multerUpload.none(), loginWithEmail);

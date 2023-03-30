@@ -1,57 +1,45 @@
 import { googleClient } from "./auth.config.js";
 import { generateToken } from "./helper/generateToken.helper.js";
 import bcrypt from "bcrypt";
-import {
-  prisma,
-  GOOGLE_CLIENT_ID,
-  REDIRECT_URL,
-} from "../../config/defaultValues.config.js";
+import axios from "axios";
+import { prisma } from "../../config/defaultValues.config.js";
+import { registerUserSchema } from "./auth.validator.js";
+import z from "zod";
+import { formatZodError } from "./helper/formatZodError.js";
 
 export const signInWithGoogle = async (req, res) => {
   try {
-    const redirectUri = REDIRECT_URL;
-    const scopes = ["profile", "email"];
+    // get token from headers
+    const access_token = req.headers.authorization.split(" ")[1];
 
-    const authUrl = googleClient.generateAuthUrl({
-      access_type: "offline",
-      scope: scopes,
-      redirect_uri: redirectUri,
-      prompt: "select_account",
-    });
+    // check access token is required
+    if (!access_token || !access_token?.trim()) {
+      return res.status(401).json({
+        message: "Invalid credential",
+      });
+    }
 
-    return res.redirect(authUrl);
-  } catch (error) {
-    console.log("[ERROR]", error);
-
-    return res.status(500).json({
-      message: "Internal server error",
-    });
-  }
-};
-
-export const signInWithGoogleCallback = async (req, res) => {
-  try {
-    const { code } = req.query;
-
-    // get google token from req query
-    const { tokens } = await googleClient.getToken({
-      code,
-      redirect_uri: REDIRECT_URL,
-    });
+    let data;
+    try {
+      // get id token from access token
+      const url = `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${access_token}`;
+      const axiosRes = await axios.get(url);
+      data = axiosRes.data;
+    } catch (error) {
+      console.log(error);
+      return res.status(401).json({
+        message: "Invalid credential",
+      });
+    }
 
     // get user info from token
-    const userInfo = await googleClient.verifyIdToken({
-      idToken: tokens.id_token,
-      audience: GOOGLE_CLIENT_ID,
-    });
-
     const {
       name,
       email,
       picture: profilePicture,
       email_verified: emailVerified,
-      azp: providerId,
-    } = userInfo.payload;
+      sub: providerId,
+    } = data;
 
     // update user data if exist or register user
     const user = await prisma.user.upsert({
@@ -75,17 +63,10 @@ export const signInWithGoogleCallback = async (req, res) => {
       where: {
         email,
       },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        provider: true,
-        profilePicture: true,
-        emailVerified: true,
-        createdAt: true,
-        updatedAt: true,
-      },
     });
+
+    // sanitize user password
+    delete user.password;
 
     // create jwt token for auth
     const token = await generateToken({
@@ -93,7 +74,7 @@ export const signInWithGoogleCallback = async (req, res) => {
     });
 
     // send 200 response
-    res.status(200).json({
+    return res.status(200).json({
       message: "User sign in in successfully.",
       data: user,
       token,
@@ -108,16 +89,18 @@ export const signInWithGoogleCallback = async (req, res) => {
 
 export const registerWithEmail = async (req, res) => {
   try {
-    const { name, email, password, profilePicture } = req.body;
+    // validate incoming user data
+    const { name, email, password, profilePicture } =
+      await registerUserSchema.parse(req.body);
 
-    // check user not exist
+    // check user already not exist
     const existUser = await prisma.user.findUnique({
       where: {
         email,
       },
     });
 
-    // send 409 conflict response
+    // send 409 conflict response if user exist
     if (existUser) {
       return res.status(409).json({
         message: "Email id or user name already taken.",
@@ -127,6 +110,7 @@ export const registerWithEmail = async (req, res) => {
     // encrypt user password
     const encryptedPassword = await bcrypt.hash(password, 12);
 
+    // create user to db
     const user = await prisma.user.create({
       data: {
         name,
@@ -140,13 +124,25 @@ export const registerWithEmail = async (req, res) => {
     // sanitize user password
     delete user.password;
 
+    // generate token
+    const token = await generateToken({ userId: user.id });
+
     // send 200 response
     res.status(201).json({
       message: "User register successfully",
       data: user,
+      token,
     });
   } catch (error) {
-    console.log(error.message);
+    if (error instanceof z.ZodError) {
+      // format zod error
+      const formattedError = await formatZodError({ error });
+
+      // send 400 response
+      return res.status(400).json({
+        error: formattedError,
+      });
+    }
     // send 500 response
     res.status(500).json({
       message: "Internal server error",
@@ -167,8 +163,7 @@ export const loginWithEmail = async (req, res) => {
       });
     }
     // validate user password
-    const user = await prisma.user.findUnique({ where: { email } });
-    const passwordMatch = await bcrypt.compare(password, user.password);
+    const passwordMatch = await bcrypt.compare(password, existUser.password);
 
     if (!passwordMatch) {
       return res.status(401).json({
@@ -177,15 +172,15 @@ export const loginWithEmail = async (req, res) => {
     }
 
     // generate token
-    const token = await generateToken({ userId: user.id });
+    const token = await generateToken({ userId: existUser.id });
 
     // sanitize user password
-    delete user.password;
+    delete existUser.password;
 
     // send 200 response
     res.status(200).json({
       message: "User logged in successfully",
-      data: user,
+      data: existUser,
       token,
     });
   } catch (error) {
