@@ -10,7 +10,7 @@ import { AiFillGithub } from "react-icons/ai";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 
-const signup = () => {
+const Signup = () => {
   const router = useRouter();
 
   const [name, setName] = useState("");
@@ -288,4 +288,4 @@ const signup = () => {
   );
 };
 
-export default signup;
+export default Signup;
