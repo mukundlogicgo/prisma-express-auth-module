@@ -1,10 +1,13 @@
 import { useRouter } from "next/router";
 import React from "react";
+import { toast } from "react-toastify";
 
 const UserCard = ({ user }) => {
   const router = useRouter();
+
   const handleLogout = async () => {
     localStorage.setItem("token", "");
+    toast.success("Log out successfully");
     router.replace("/auth/signup");
   };
 

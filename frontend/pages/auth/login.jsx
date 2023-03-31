@@ -2,9 +2,10 @@ import Spinner from "@/components/Spinner";
 import { formatZodError } from "@/helper/formateZodError.helper";
 import { NEXT_PUBLIC_SERVER_BASE_URL } from "@/pages/_app";
 import { loginFormSchema } from "@/validation/signupForm.validation";
-
 import axios from "axios";
 import Link from "next/link";
+
+import { toast } from "react-toastify";
 
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
@@ -52,8 +53,6 @@ const Login = () => {
       );
 
       if (axiosRes.status === 200) {
-        alert(axiosRes.data.message);
-
         localStorage.setItem("token", axiosRes.data.token);
 
         // reset all state
@@ -61,9 +60,12 @@ const Login = () => {
 
         // navigate to home page
         router.replace("/");
+
+        toast.success(axiosRes.data.message);
       }
     } catch (error) {
-      error?.response?.data?.message && alert(error?.response?.data?.message);
+      error?.response?.data?.message &&
+        toast.error(error?.response?.data?.message);
 
       error?.response?.data?.error &&
         setFormError(error?.response?.data?.error);

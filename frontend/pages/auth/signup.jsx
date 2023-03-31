@@ -9,6 +9,7 @@ import { FcGoogle } from "react-icons/fc";
 import { AiFillGithub } from "react-icons/ai";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 
 const Signup = () => {
   const router = useRouter();
@@ -46,7 +47,7 @@ const Signup = () => {
     try {
       const { access_token } = response;
       if (!access_token) {
-        return alert(
+        return toast.error(
           "Unable to get credential from google retry after some time"
         );
       }
@@ -64,14 +65,14 @@ const Signup = () => {
 
       // redirect user to home page
       if (axiosRes.status === 200) {
-        alert(axiosRes.data.message);
+        toast.success(axiosRes.data.message);
         router.replace("/");
       }
     } catch (error) {
       console.log("[ERROR]", error.message);
 
       if (error?.response?.data?.message) {
-        alert(error.response.data.message);
+        toast.error(error.response.data.message);
       }
     }
   };
@@ -98,7 +99,7 @@ const Signup = () => {
       );
 
       if (axiosRes.status === 201) {
-        alert(axiosRes.data.message);
+        toast.success(axiosRes.data.message);
 
         localStorage.setItem("token", axiosRes.data.token);
 
@@ -109,7 +110,8 @@ const Signup = () => {
         router.replace("/");
       }
     } catch (error) {
-      error?.response?.data?.message && alert(error?.response?.data?.message);
+      error?.response?.data?.message &&
+        toast.error(error?.response?.data?.message);
 
       error?.response?.data?.error &&
         setFormError(error?.response?.data?.error);
