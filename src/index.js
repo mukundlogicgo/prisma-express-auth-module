@@ -3,7 +3,8 @@ import cors from "cors";
 import authRouter from "./services/auth/auth.route.js";
 import userRouter from "./services/user/user.route.js";
 import { authenticate } from "./services/auth/auth.middleware.js";
-import { multerUpload, PORT } from "./config/defaultValues.config.js";
+import { PORT } from "./config/defaultValues.config.js";
+import paymentRouter from "./services/payment/payment.router.js";
 
 const port = PORT ?? 5000;
 
@@ -28,13 +29,16 @@ app.get("/api", async (req, res) => {
   });
 });
 
-// handle auth route
+// auth router
 app.use("/api/auth", authRouter);
 
-// private route
+// user router
 app.use("/api/user", authenticate, userRouter);
 
-// home page route
+// payment router
+app.use("/api/payment", paymentRouter);
+
+// home router
 app.get("/", authenticate, (req, res) => {
   res.status(200).json({
     message: "hello this is home page",

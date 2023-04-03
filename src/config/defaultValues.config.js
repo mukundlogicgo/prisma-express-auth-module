@@ -18,6 +18,8 @@ export const {
   GOOGLE_CLIENT_SECRET,
 
   JWT_SECRET,
+
+  STRIPE_SECRET_KEY,
 } = process.env;
 
 export const prisma = new PrismaClient();
